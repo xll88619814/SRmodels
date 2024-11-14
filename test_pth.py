@@ -15,12 +15,11 @@ def main():
     model.eval()
     model = model.cuda()
 
-    ii = 0
-    im = cv2.imread('./zuqiu.png')/255.
     start_time = time.time()
+    mt = 0
     with torch.no_grad():
         for i in range(100):
-            img_LQ = im
+            img_LQ = cv2.imread('./zuqiu.png')/255.
 
             h, w, _ = img_LQ.shape
             oh = int(np.ceil(img_LQ.shape[0]/4.)*4) - img_LQ.shape[0]
@@ -28,17 +27,22 @@ def main():
             img_LQ = cv2.copyMakeBorder(img_LQ, oh // 2, oh - oh // 2, ow // 2, ow - ow // 2, cv2.BORDER_REFLECT)
             imgs_in = torch.FloatTensor(np.transpose(img_LQ[:, :, [2, 1, 0]], (2, 0, 1))).unsqueeze(0).cuda()
 
+            t = time.time()
+            torch.cuda.synchronize()
             output = model(imgs_in).data
-        
+            torch.cuda.synchronize()
+            mt += (time.time()-t)     
+   
             tensor = output.squeeze().float().cpu().clamp_(*(0, 1))  # clamp
             img_np = tensor.numpy()
             img_np = np.transpose(img_np, (1, 2, 0))[:, :, [2, 1, 0]]  # CHW to HWC, RGB to BGR
             img_np = (img_np * 255.).round().astype(np.uint8)[oh:oh+h*2, ow:ow+w*2, :]
             cv2.imwrite('output.png', img_np)
-               
+            print(img_np[1080:1100, 1920:1940, :])
+            exit()
     end_time = time.time()
     print('finish')
-    print('The processing time for each image is: {}'.format((end_time-start_time)/100))
+    print('The processing time for each image is: {}, {}'.format((end_time-start_time)/100, mt/100))
 
 if __name__ == '__main__':
     main()
